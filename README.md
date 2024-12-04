@@ -20,8 +20,8 @@ Welcome to **NLP2SQL**, a Streamlit-based application that allows users to inter
 1. **Clone the repository**:
 
     ```bash
-    git clone https://github.com/your_username/nlp2sql.git
-    cd nlp2sql
+    git clone https://github.com/sifinell/NLP2SQL.git
+    cd NLP2SQL
     ```
 
 2. **Install dependencies**:
@@ -34,14 +34,13 @@ Welcome to **NLP2SQL**, a Streamlit-based application that allows users to inter
    - Create a `.env` file in the project root with the following content:
 
      ```plaintext
-     OPENAI_API_TYPE="azure"
-     AZURE_OPENAI_ENDPOINT="insert_endpoint_here"
-     AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o"
-     AZURE_OPENAI_API_VERSION="2024-05-01-preview"
-     AZURE_OPENAI_API_KEY="insert_key_here"
+    AZURE_OPENAI_ENDPOINT="your-azure-openai-endpoint"
+    AZURE_OPENAI_API_KEY="your-azure-openai-api-key"
+    AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o"
+    AZURE_OPENAI_API_VERSION="2024-05-01-preview"
      ```
 
-   - Replace `insert_endpoint_here` and `insert_key_here` with your Azure OpenAI deployment details.
+   - Replace `your-azure-openai-endpoint` and `your-azure-openai-api-key` with your Azure OpenAI deployment details.
 
 4. **Run the application**:
 
