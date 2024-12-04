@@ -33,12 +33,12 @@ Welcome to **NLP2SQL**, a Streamlit-based application that allows users to inter
 3. **Set up the environment variables**:
    - Create a `.env` file in the project root with the following content:
 
-     ```plaintext
+    ```plaintext
     AZURE_OPENAI_ENDPOINT="your-azure-openai-endpoint"
     AZURE_OPENAI_API_KEY="your-azure-openai-api-key"
     AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o"
     AZURE_OPENAI_API_VERSION="2024-05-01-preview"
-     ```
+    ```
 
    - Replace `your-azure-openai-endpoint` and `your-azure-openai-api-key` with your Azure OpenAI deployment details.
 
