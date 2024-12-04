@@ -96,7 +96,7 @@ Here are some examples of queries you can ask the application:
 
 ## References
 
-For more details about the LangChain SQL capabilities used in this project, visit the [LangChain SQL Quickstart documentation](https://python.langchain.com/v0.1/docs/use_cases/sql/quickstart/).
+For more details about the LangChain SQL capabilities used in this project, visit the [LangChain SQL Quickstart documentation](https://python.langchain.com/docs/tutorials/sql_qa/).
 
 ## License
 
