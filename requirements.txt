@@ -1,7 +1,9 @@
-langchain
-langchain-community
-langchain-openai
-python-dotenv
-langgraph
-faiss-cpu
 streamlit
+python-dotenv
+langchain-openai
+langchain-community
+langchain-core
+langchain
+langchainhub 
+langgraph
+pathlib

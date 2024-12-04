@@ -1,126 +1,122 @@
 import streamlit as st
 from pathlib import Path
 from langchain_openai import AzureChatOpenAI
-from langchain_openai import AzureOpenAIEmbeddings
 from langchain_community.utilities import SQLDatabase
-from langchain.agents.agent_toolkits import create_retriever_tool
-from langchain.agents import create_sql_agent
-from langchain.agents.agent_types import AgentType
-from langchain.callbacks import StreamlitCallbackHandler
-from langchain_community.vectorstores import FAISS
-from sqlalchemy import create_engine
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from langgraph.prebuilt import create_react_agent
+from langchain import hub
 from dotenv import load_dotenv
-import sqlite3
-import ast
-import re
 import os
+import json
 
-
+# Load environment variables from a .env file
 load_dotenv()
 
+# Retrieve Azure OpenAI configuration from environment variables
+aoai_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
+aoai_key=os.getenv("AZURE_OPENAI_API_KEY")
+aoai_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+aoai_api_version=os.getenv("AZURE_OPENAI_API_VERSION")
+
+# Set Streamlit page configuration
 st.set_page_config(page_title="NLP2SQL", page_icon="🔍", layout="wide")
 st.title("Chat with your SQL Database")
 
+# Function to configure the Azure OpenAI language model
 def configure_llm():
-    
-    os.environ["AZURE_OPENAI_ENDPOINT"] = "insert_endpoint_here"
-    os.environ["AZURE_OPENAI_API_KEY"] = os.getenv("AZURE_OPENAI_API_KEY")
-
     return AzureChatOpenAI(
-        azure_deployment="gpt-4o",
-        api_version="2024-05-01-preview",
+        azure_endpoint=aoai_endpoint,
+        api_key=aoai_key,
+        azure_deployment=aoai_deployment,
+        api_version=aoai_api_version,
         temperature=0, 
         streaming=True
     )
 
+# Function to configure the SQL database connection
 def configure_db():
-    
     db_filepath = (Path(__file__).parent / "Chinook.db").absolute()
-    creator = lambda: sqlite3.connect(f"file:{db_filepath}?mode=ro", uri=True)
-    
-    return SQLDatabase(create_engine("sqlite:///", creator=creator))
+    return SQLDatabase.from_uri(f"sqlite:///{db_filepath}")
 
-def query_as_list(db, query):
-    
-    res = db.run(query)
-    res = [el for sub in ast.literal_eval(res) for el in sub if el]
-    res = [re.sub(r"\b\d+\b", "", string).strip() for string in res]
-    
-    return list(set(res))
-
-def configure_tools(db):
-    
-    tools = []
-    
-    artists = query_as_list(db, "SELECT Name FROM Artist")
-    albums = query_as_list(db, "SELECT Title FROM Album")
-    
-    vector_db = FAISS.from_texts(artists + albums, AzureOpenAIEmbeddings())
-    retriever = vector_db.as_retriever(search_kwargs={"k": 5})
-    description = """Use to look up values to filter on. Input is an approximate spelling of the proper noun, output is \
-    valid proper nouns. Use the noun most similar to the search."""
-    
-    retriever_tool = create_retriever_tool(
-        retriever,
-        name="search_proper_nouns",
-        description=description,
-    )
-
-    tools.append(retriever_tool)
-
+# Function to configure the tools for the agent
+def configure_tools(db, llm):
+    toolkit = SQLDatabaseToolkit(db=db, llm=llm)
+    tools = toolkit.get_tools()
     return tools
 
-def configure_agent(db, llm, tools):
+# Function to configure the agent
+def configure_agent(llm, tools):
+    prompt_template = hub.pull("langchain-ai/sql-agent-system-prompt")
+    system_message = prompt_template.format(dialect="SQLite", top_k=5)
+    agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
+    return agent_executor
 
-    system = """You are an agent designed to interact with a SQL database.
-    Given an input question, create a syntactically correct SQLite query to run, then look at the results of the query and return the answer.
-    Unless the user specifies a specific number of examples they wish to obtain, always limit your query to at most 5 results.
-    You can order the results by a relevant column to return the most interesting examples in the database.
-    Never query for all the columns from a specific table, only ask for the relevant columns given the question.
-    You have access to tools for interacting with the database.
-    Only use the given tools. Only use the information returned by the tools to construct your final answer.
-    You MUST double check your query before executing it. If you get an error while executing a query, rewrite the query and try again.
+# Function to format the message based on its type
+def format_message(message):
+    message_type = message.get("type", "unknown")
+    content = message.get("content", "")
+    tool_calls = message.get("tool_calls", [])
+    formatted_message = None
 
-    DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+    if message_type == "human":
+        formatted_message = f"**Type:** {message_type}\n\n"
+        formatted_message += f"**User:** {content}\n"
+    elif message_type == "ai":
+        if tool_calls:
+            formatted_message = f"**Type:** {message_type}\n\n"
+            formatted_message += "**Tool Calls:**\n"
+            for tool_call in tool_calls:
+                formatted_message += f"- **Tool Name:** {tool_call['name']}\n"
+                formatted_message += f"  **Arguments:** {json.dumps(tool_call['args'], indent=2)}\n"
+    elif message_type == "tool":
+        formatted_message = f"**Type:** {message_type}\n\n"
+        formatted_message += f"**Tool Response ({message['name']}):** {content}\n"
+    else:
+        formatted_message = f"**Type:** {message_type}\n\n"
+        formatted_message += f"**Message:** {content}\n"
+    
+    return formatted_message
+    
+def main():
+    # Configure the database, language model, tools, and agent
+    db = configure_db()
+    llm = configure_llm()
+    tools = configure_tools(db, llm)
+    agent = configure_agent(llm, tools)
 
-    You have access to the following tables: {table_names}
+    # Initialize message history or clear it if the button is pressed
+    if "messages" not in st.session_state or st.sidebar.button("Clear message history"):
+        st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
 
-    If you need to filter on a proper noun, you must ALWAYS first look up the filter value using the "search_proper_nouns" tool!
-    Do not try to guess at the proper name - use this function to find similar ones.""".format(
-        table_names=db.get_usable_table_names()
-    )
+    # Display the chat messages
+    for msg in st.session_state.messages:
+        st.chat_message(msg["role"]).write(msg["content"])
 
-    agent = create_sql_agent(
-        llm=llm,
-        db=db,
-        extra_tools=tools,
-        verbose=True,
-        handle_parsing_errors=True,
-        agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-        prefix=system
-    )
+    # Get user input from the chat input box
+    question = st.chat_input(placeholder="Ask me anything!")
+    
+    if question:
+        # Append the user's question to the message history
+        st.session_state.messages.append({"role": "user", "content": question})
+        st.chat_message("user").write(question)
 
-    return agent
+        # Display the agent's reasoning with an expandable explanation
+        with st.expander("See explanation", expanded=False):
+            with st.chat_message("agent", avatar="🔍"):
+                for step in agent.stream(
+                    {"messages": st.session_state.messages},
+                    stream_mode="values",
+                ):
+                    message = step["messages"][-1]
+                    message_dict = message.dict()
+                    formatted_message = format_message(message_dict)
+                    if formatted_message is not None:
+                        st.write(formatted_message)
 
-llm = configure_llm()
-db = configure_db()
-tools = configure_tools(db)
-agent = configure_agent(db, llm, tools)
+        # Display the final agent's response
+        with st.chat_message("assistant"):
+            st.session_state.messages.append({"role": "assistant", "content": message.content})
+            st.write(message.content)
 
-if "messages" not in st.session_state or st.sidebar.button("Clear message history"):
-    st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
-
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
-
-user_query = st.chat_input(placeholder="Ask me anything!")
-
-if user_query:
-    st.session_state.messages.append({"role": "user", "content": user_query})
-    st.chat_message("user").write(user_query)
-
-    with st.chat_message("assistant"):
-        st_cb = StreamlitCallbackHandler(st.container())
-        response = agent.run(user_query, callbacks=[st_cb])
-        st.session_state.messages.append({"role": "assistant", "content": response})
-        st.write(response)
+if __name__ == "__main__":
+    main()
