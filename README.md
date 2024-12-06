@@ -1,6 +1,6 @@
 # NLP2SQL: Chat with Your SQL Database 🔍
 
-Welcome to **NLP2SQL**, a Streamlit-based application that allows users to interact with a SQL database using natural language. Powered by Azure OpenAI, LangChain, and FAISS, this tool simplifies database exploration with an intuitive chat interface.
+Welcome to **NLP2SQL**, a Streamlit-based application that allows users to interact with a SQL database using natural language. Powered by Azure OpenAI, LangChain, and Vector Search, this tool simplifies database exploration with an intuitive chat interface.
 
 ## Features
 
