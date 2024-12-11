@@ -99,10 +99,6 @@ Here are some examples of queries you can ask the application:
 
 For more details about the LangChain SQL capabilities used in this project, visit the [LangChain SQL Quickstart documentation](https://python.langchain.com/docs/tutorials/sql_qa/).
 
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
 ## Contributing
 
 Feel free to submit issues or pull requests for new features and improvements!
